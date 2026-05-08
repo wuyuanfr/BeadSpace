@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3001/api/workspace?path=C:/Users/18270/workspace/Games/BeadSpace)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 47740)",
+      "Bash(taskkill //F //PID 23260)",
+      "Bash(taskkill //F //PID 11092)",
+      "Bash(taskkill //F //PID 31972)",
+      "Bash(curl -s http://localhost:3002/api/workspace?path=C:/Users/18270/workspace/Games/BeadSpace)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:3003)",
+      "Bash(taskkill //F //PID 44708)",
+      "Bash(taskkill //F //PID 49728)",
+      "Bash(taskkill //F //PID 35124)",
+      "Bash(taskkill //F //PID 28480)",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  }
+}

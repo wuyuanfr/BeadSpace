@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "packages/server/src/index.ts"],
+      "port": 3002
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "3003"],
+      "port": 3003,
+      "cwd": "packages/client"
+    }
+  ]
+}
