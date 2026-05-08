@@ -1,57 +1,26 @@
-import type { BeadNode } from "@beadspace/shared";
+import { getPastelHex } from "../renderer/bead-node.js";
 
-const sidebar = document.getElementById("sidebar") as HTMLDivElement;
-const content = document.getElementById("sidebar-content") as HTMLDivElement;
-const closeBtn = sidebar.querySelector(".close-btn") as HTMLButtonElement;
+const legendList = document.getElementById("legend-list") as HTMLDivElement;
 
-closeBtn.addEventListener("click", () => {
-  sidebar.style.display = "none";
-});
-
-export function showSidebar(node: BeadNode): void {
-  const rows: [string, string][] = [
-    ["Path", node.path],
-    ["Type", node.type],
-  ];
-
-  if (node.language && node.language !== "unknown") {
-    rows.push(["Language", node.language]);
-  }
-  if (node.sizeBytes !== undefined) {
-    rows.push([
-      "Size",
-      node.sizeBytes > 1024
-        ? `${(node.sizeBytes / 1024).toFixed(1)} KB`
-        : `${node.sizeBytes} B`,
-    ]);
-  }
-  if (node.gitCommitCount) {
-    rows.push(["Total Commits", String(node.gitCommitCount)]);
-  }
-  if (node.gitRecentActivity) {
-    rows.push(["Recent Activity (30d)", String(node.gitRecentActivity)]);
-  }
-  if (node.gitLastModified) {
-    rows.push([
-      "Last Modified",
-      new Date(node.gitLastModified).toLocaleDateString(),
-    ]);
-  }
-  if (node.gitAuthors && node.gitAuthors.length > 0) {
-    rows.push(["Authors", node.gitAuthors.join(", ")]);
-  }
-  rows.push(["Brightness", `${(node.brightness * 100).toFixed(0)}%`]);
-  rows.push(["Importance", `${(node.importance * 100).toFixed(0)}%`]);
-
-  content.innerHTML = rows
-    .map(
-      ([label, value]) =>
-        `<div class="detail-row">
-          <span class="detail-label">${label}</span>
-          <span class="detail-value">${value}</span>
-        </div>`
-    )
+export function updateLegend(languages: Record<string, number>): void {
+  const sorted = Object.entries(languages).sort((a, b) => b[1] - a[1]);
+  legendList.innerHTML = sorted
+    .slice(0, 12)
+    .map(([lang, count]) => {
+      const color = getPastelHex(lang);
+      return `<div class="legend-row">
+        <span class="legend-bead" style="background:${color}"></span>
+        <span>${lang}</span>
+        <span class="legend-count">${count}</span>
+      </div>`;
+    })
     .join("");
+}
 
-  sidebar.style.display = "block";
+export function showSidebar(): void {
+  document.getElementById("left-sidebar")!.classList.add("visible");
+}
+
+export function hideSidebar(): void {
+  document.getElementById("left-sidebar")!.classList.remove("visible");
 }

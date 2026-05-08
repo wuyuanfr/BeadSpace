@@ -12,16 +12,17 @@ export function setupViewport(
   let lastY = 0;
 
   const canvas = app.canvas as HTMLCanvasElement;
+  canvas.style.cursor = "grab";
 
+  // Smooth zoom toward cursor
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const factor = e.deltaY > 0 ? 0.92 : 1.08;
     const newScale = Math.max(
       MIN_SCALE,
-      Math.min(MAX_SCALE, world.scale.x * delta)
+      Math.min(MAX_SCALE, world.scale.x * factor)
     );
 
-    // Zoom toward cursor position
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
@@ -45,16 +46,16 @@ export function setupViewport(
 
   window.addEventListener("pointermove", (e) => {
     if (!dragging) return;
-    const dx = e.clientX - lastX;
-    const dy = e.clientY - lastY;
-    world.x += dx;
-    world.y += dy;
+    world.x += e.clientX - lastX;
+    world.y += e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
   });
 
   window.addEventListener("pointerup", () => {
-    dragging = false;
-    canvas.style.cursor = "default";
+    if (dragging) {
+      dragging = false;
+      canvas.style.cursor = "grab";
+    }
   });
 }
