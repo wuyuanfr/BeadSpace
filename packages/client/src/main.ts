@@ -1,47 +1,45 @@
 import type { WorkspaceGraph } from "@beadspace/shared";
 import { BeadSpaceApp } from "./renderer/app.js";
-import { updateLegend, showSidebar, hideSidebar } from "./ui/sidebar.js";
+import { updateLegend } from "./ui/sidebar.js";
 import { updateBottomBar } from "./ui/bottom-bar.js";
+import { openFolderPicker } from "./ui/folder-picker.js";
 
 const pathInput = document.getElementById("path-input") as HTMLInputElement;
+const browseBtn = document.getElementById("browse-btn") as HTMLButtonElement;
 const scanBtn = document.getElementById("scan-btn") as HTMLButtonElement;
-const regenBtn = document.getElementById("regen-btn") as HTMLButtonElement;
+const ironBtn = document.getElementById("iron-btn") as HTMLButtonElement;
+const brushSlider = document.getElementById("brush-slider") as HTMLInputElement;
+const brushValue = document.getElementById("brush-value") as HTMLSpanElement;
 const container = document.getElementById("canvas-container") as HTMLDivElement;
 const sidebar = document.getElementById("left-sidebar") as HTMLElement;
 const scanOverlay = document.getElementById("scan-overlay") as HTMLDivElement;
 const scanStatusText = document.getElementById("scan-status-text") as HTMLDivElement;
+const allColdBtn = document.getElementById("all-cold-btn") as HTMLButtonElement;
+const allFusedBtn = document.getElementById("all-fused-btn") as HTMLButtonElement;
+const resetBoardBtn = document.getElementById("reset-board-btn") as HTMLButtonElement;
 
 let app: BeadSpaceApp | null = null;
-let lastGraph: WorkspaceGraph | null = null;
 
 const scanMessages = [
   "Discovering files...",
   "Reading workspace structure...",
-  "Generating Bead Forest...",
-  "Building Dataset Desert...",
-  "Constructing Documentation Temple...",
-  "Assembling bead world...",
+  "Choosing perler colors...",
+  "Building pegboards...",
+  "Dropping beads onto pins...",
 ];
 
-function showScanAnimation(): Promise<void> {
+function showScanAnimation(): () => void {
   scanOverlay.classList.add("active");
   let idx = 0;
+  scanStatusText.textContent = scanMessages[0];
   const interval = setInterval(() => {
     idx = (idx + 1) % scanMessages.length;
     scanStatusText.textContent = scanMessages[idx];
   }, 600);
-  return new Promise((resolve) => {
-    (scanOverlay as any)._cleanup = () => {
-      clearInterval(interval);
-      scanOverlay.classList.remove("active");
-      resolve();
-    };
-  });
-}
-
-function hideScanAnimation() {
-  const cleanup = (scanOverlay as any)._cleanup;
-  if (cleanup) cleanup();
+  return () => {
+    clearInterval(interval);
+    scanOverlay.classList.remove("active");
+  };
 }
 
 async function scan() {
@@ -49,7 +47,7 @@ async function scan() {
   if (!targetPath) return;
 
   scanBtn.disabled = true;
-  const animDone = showScanAnimation();
+  const dismiss = showScanAnimation();
 
   try {
     const res = await fetch(
@@ -61,20 +59,15 @@ async function scan() {
     }
 
     const graph: WorkspaceGraph = await res.json();
-    lastGraph = graph;
 
-    // Ensure minimum scan animation time for UX
-    await new Promise((r) => setTimeout(r, 1200));
-    hideScanAnimation();
+    await new Promise((r) => setTimeout(r, 800));
+    dismiss();
 
-    // Show sidebar first so container dimensions are correct
     sidebar.classList.add("visible");
     container.classList.add("with-sidebar");
     updateLegend(graph.metadata.languages);
     updateBottomBar(graph);
-    initLayerToggles();
 
-    // Wait a frame for layout to settle
     await new Promise((r) => requestAnimationFrame(r));
 
     if (!app) {
@@ -85,68 +78,40 @@ async function scan() {
     app.resize();
     app.renderGraph(graph);
   } catch (err: unknown) {
-    hideScanAnimation();
+    dismiss();
     const msg = err instanceof Error ? err.message : "Unknown error";
     scanStatusText.textContent = `Error: ${msg}`;
     scanOverlay.classList.add("active");
-    setTimeout(() => scanOverlay.classList.remove("active"), 2000);
+    setTimeout(() => scanOverlay.classList.remove("active"), 2200);
   } finally {
     scanBtn.disabled = false;
   }
 }
 
-function initLayerToggles() {
-  const togglesContainer = document.getElementById("layer-toggles")!;
-  const layers = [
-    { name: "Folders", color: "#A8D5BA", key: "folders" },
-    { name: "Git Activity", color: "#FFB7B2", key: "git" },
-    { name: "File Labels", color: "#9BC7F7", key: "labels" },
-  ];
-
-  togglesContainer.innerHTML = layers
-    .map(
-      (l) => `
-    <div class="layer-toggle" data-layer="${l.key}">
-      <span><span class="dot" style="background:${l.color}"></span>${l.name}</span>
-      <div class="toggle-switch on" data-layer="${l.key}"></div>
-    </div>
-  `
-    )
-    .join("");
-
-  togglesContainer.querySelectorAll(".toggle-switch").forEach((sw) => {
-    sw.addEventListener("click", () => {
-      sw.classList.toggle("on");
-      const layer = (sw as HTMLElement).dataset.layer!;
-      app?.toggleLayer(layer, sw.classList.contains("on"));
-    });
-  });
-}
-
-// Theme cards
-document.querySelectorAll(".theme-card").forEach((card) => {
-  card.addEventListener("click", () => {
-    document.querySelectorAll(".theme-card").forEach((c) => c.classList.remove("active"));
-    card.classList.add("active");
-  });
-});
-
 scanBtn.addEventListener("click", scan);
-regenBtn.addEventListener("click", () => {
-  if (lastGraph && app) {
-    app.renderGraph(lastGraph);
-  }
-});
 pathInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") scan();
 });
+browseBtn.addEventListener("click", () => {
+  openFolderPicker(pathInput.value.trim(), (selected) => {
+    pathInput.value = selected;
+  });
+});
 
-// Close detail card
-document.querySelector("#detail-card .card-close")!.addEventListener("click", () => {
-  document.getElementById("detail-card")!.classList.remove("visible");
-  document.getElementById("detail-card-backdrop")!.classList.remove("visible");
+ironBtn.addEventListener("click", () => {
+  if (!app) return;
+  const newActive = !app.ironTool.isActive();
+  app.ironTool.setActive(newActive);
+  ironBtn.classList.toggle("active", newActive);
 });
-document.getElementById("detail-card-backdrop")!.addEventListener("click", () => {
-  document.getElementById("detail-card")!.classList.remove("visible");
-  document.getElementById("detail-card-backdrop")!.classList.remove("visible");
+
+brushSlider.addEventListener("input", () => {
+  if (!app) return;
+  const r = parseInt(brushSlider.value, 10);
+  app.ironTool.setBrushRadius(r);
+  brushValue.textContent = String(r);
 });
+
+allColdBtn.addEventListener("click", () => app?.setAllCold());
+allFusedBtn.addEventListener("click", () => app?.setAllFused());
+resetBoardBtn.addEventListener("click", () => app?.resetBoard());

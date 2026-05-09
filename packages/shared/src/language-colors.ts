@@ -1,31 +1,35 @@
-export const LANGUAGE_COLORS: Record<string, string> = {
-  typescript: "#3178C6",
-  javascript: "#F7DF1E",
-  python: "#3572A5",
-  rust: "#DEA584",
-  go: "#00ADD8",
-  java: "#B07219",
-  csharp: "#178600",
-  cpp: "#F34B7D",
-  c: "#555555",
-  ruby: "#701516",
-  php: "#4F5D95",
-  swift: "#F05138",
-  kotlin: "#A97BFF",
-  html: "#E34C26",
-  css: "#563D7C",
-  scss: "#C6538C",
-  json: "#A4A4A4",
-  yaml: "#CB171E",
-  markdown: "#083FA1",
-  dockerfile: "#384D54",
-  shell: "#89E051",
-  sql: "#E38C00",
-  lua: "#000080",
-  dart: "#00B4AB",
-  vue: "#41B883",
-  svelte: "#FF3E00",
-  unknown: "#888888",
+import type { PerlerColor } from "./perler-palette.js";
+
+export const LANGUAGE_PERLER: Record<string, PerlerColor> = {
+  typescript: "blue",
+  javascript: "yellow",
+  python: "skyBlue",
+  rust: "tan",
+  go: "mint",
+  java: "pumpkin",
+  csharp: "purple",
+  cpp: "hotCoral",
+  c: "darkGrey",
+  ruby: "darkRed",
+  php: "periwinkle",
+  swift: "orange",
+  kotlin: "lavender",
+  html: "lightOrange",
+  css: "cobalt",
+  scss: "magenta",
+  json: "lightGrey",
+  yaml: "red",
+  markdown: "pastelBlue",
+  dockerfile: "navy",
+  shell: "lightGreen",
+  sql: "cheddar",
+  lua: "darkBlue",
+  dart: "skyBlue",
+  vue: "green",
+  svelte: "salmon",
+  toml: "tan",
+  xml: "peach",
+  unknown: "grey",
 };
 
 export const EXTENSION_TO_LANGUAGE: Record<string, string> = {
@@ -43,6 +47,7 @@ export const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   ".cpp": "cpp",
   ".cc": "cpp",
   ".cxx": "cpp",
+  ".hpp": "cpp",
   ".h": "c",
   ".c": "c",
   ".rb": "ruby",
@@ -59,6 +64,7 @@ export const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   ".yaml": "yaml",
   ".yml": "yaml",
   ".md": "markdown",
+  ".markdown": "markdown",
   ".sh": "shell",
   ".bash": "shell",
   ".zsh": "shell",
@@ -67,6 +73,8 @@ export const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   ".dart": "dart",
   ".vue": "vue",
   ".svelte": "svelte",
+  ".toml": "toml",
+  ".xml": "xml",
 };
 
 export function getLanguage(extension: string, filename: string): string {
@@ -74,6 +82,6 @@ export function getLanguage(extension: string, filename: string): string {
   return EXTENSION_TO_LANGUAGE[extension.toLowerCase()] ?? "unknown";
 }
 
-export function getColor(language: string): string {
-  return LANGUAGE_COLORS[language] ?? LANGUAGE_COLORS.unknown;
+export function getPerlerColor(language: string): PerlerColor {
+  return LANGUAGE_PERLER[language] ?? "grey";
 }

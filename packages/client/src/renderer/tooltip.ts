@@ -1,33 +1,29 @@
-import type { BeadNode } from "@beadspace/shared";
-import { getPastelHex } from "./bead-node.js";
+import { perlerHex, getPerlerColor } from "@beadspace/shared";
+import type { FileBeadNode } from "@beadspace/shared";
+import { formatBytes } from "../util/format.js";
 
 const tooltip = document.getElementById("tooltip") as HTMLDivElement;
 const ttBeadIcon = tooltip.querySelector(".tt-bead-icon") as HTMLSpanElement;
 const ttFilename = tooltip.querySelector(".tt-filename") as HTMLSpanElement;
 const ttMeta = tooltip.querySelector(".tt-meta") as HTMLDivElement;
 
-export function showTooltip(node: BeadNode, x: number, y: number): void {
-  const color = getPastelHex(node.language);
+export function showTooltip(node: FileBeadNode, x: number, y: number): void {
+  const color = perlerHex(getPerlerColor(node.language ?? "unknown"));
   ttBeadIcon.style.background = color;
   ttFilename.textContent = node.name;
 
   const rows: string[] = [];
-
   if (node.language && node.language !== "unknown") {
     rows.push(`<div class="tt-row"><span class="tt-label">Language</span><span class="tt-value">${node.language}</span></div>`);
   }
   if (node.sizeBytes) {
-    const sizeStr = node.sizeBytes > 1024
-      ? `${(node.sizeBytes / 1024).toFixed(1)} KB`
-      : `${node.sizeBytes} B`;
-    rows.push(`<div class="tt-row"><span class="tt-label">Size</span><span class="tt-value">${sizeStr}</span></div>`);
+    rows.push(`<div class="tt-row"><span class="tt-label">Size</span><span class="tt-value">${formatBytes(node.sizeBytes)}</span></div>`);
   }
   if (node.gitCommitCount) {
     rows.push(`<div class="tt-row"><span class="tt-label">Commits</span><span class="tt-value">${node.gitCommitCount}</span></div>`);
   }
   if (node.gitLastModified) {
-    const ago = getTimeAgo(node.gitLastModified);
-    rows.push(`<div class="tt-row"><span class="tt-label">Modified</span><span class="tt-value">${ago}</span></div>`);
+    rows.push(`<div class="tt-row"><span class="tt-label">Modified</span><span class="tt-value">${getTimeAgo(node.gitLastModified)}</span></div>`);
   }
 
   ttMeta.innerHTML = rows.join("");

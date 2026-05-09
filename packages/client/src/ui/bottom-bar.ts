@@ -9,7 +9,6 @@ export function updateBottomBar(graph: WorkspaceGraph): void {
   const { totalFiles, totalFolders, languages } = graph.metadata;
   const langCount = Object.keys(languages).length;
 
-  // Compute commit energy
   let totalRecent = 0;
   for (const node of graph.nodes) {
     if (node.gitRecentActivity) totalRecent += node.gitRecentActivity;

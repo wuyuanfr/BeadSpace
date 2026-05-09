@@ -1,25 +1,31 @@
 import * as PIXI from "pixi.js";
-import type { WorkspaceGraph, BeadNode } from "@beadspace/shared";
-import { createFolderRegion } from "./folder-region.js";
-import { createBeadNode } from "./bead-node.js";
+import type {
+  WorkspaceGraph,
+  FileBeadNode,
+  FolderBeadNode,
+} from "@beadspace/shared";
+import { CellStateMap } from "./cell-state.js";
+import { Region, buildRegionCells } from "./region.js";
 import { setupViewport } from "../camera/viewport.js";
 import { showTooltip, hideTooltip } from "./tooltip.js";
 import { showDetailCard } from "../ui/detail-card.js";
-import { createAmbientParticles } from "./particles.js";
+import { IronTool } from "../tools/iron-tool.js";
+
+const BG_COLOR = 0xf9f8f4;
 
 export class BeadSpaceApp {
   private app!: PIXI.Application;
   private world!: PIXI.Container;
-  private folderLayer!: PIXI.Container;
-  private beadLayer!: PIXI.Container;
-  private labelLayer!: PIXI.Container;
-  private particleLayer!: PIXI.Container;
+  private regions: Region[] = [];
+  private cellState = new CellStateMap();
+  private pinSpacing = 14;
+  ironTool!: IronTool;
 
   async init(container: HTMLElement): Promise<void> {
     this.app = new PIXI.Application();
     await this.app.init({
       resizeTo: container,
-      backgroundColor: 0xf9f8f4,
+      backgroundColor: BG_COLOR,
       antialias: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
@@ -27,154 +33,137 @@ export class BeadSpaceApp {
     container.appendChild(this.app.canvas);
 
     this.world = new PIXI.Container();
-    this.folderLayer = new PIXI.Container();
-    this.beadLayer = new PIXI.Container();
-    this.labelLayer = new PIXI.Container();
-    this.particleLayer = new PIXI.Container();
-
-    this.world.addChild(this.folderLayer);
-    this.world.addChild(this.beadLayer);
-    this.world.addChild(this.labelLayer);
-    this.world.addChild(this.particleLayer);
-
     this.app.stage.addChild(this.world);
     this.app.stage.eventMode = "static";
 
     setupViewport(this.app, this.world);
+
+    this.ironTool = new IronTool(this);
+
+    this.app.ticker.add(() => {
+      this.ironTool.tick();
+      for (const region of this.regions) {
+        if (region.dirty) {
+          region.redraw(this.cellState);
+        }
+      }
+    });
   }
 
   resize(): void {
     this.app.resize();
   }
 
-  toggleLayer(layer: string, visible: boolean): void {
-    if (layer === "folders") this.folderLayer.visible = visible;
-    if (layer === "labels") this.labelLayer.visible = visible;
-    if (layer === "git") {
-      this.beadLayer.children.forEach((child) => {
-        const beadData = (child as any)._beadData as BeadNode | undefined;
-        if (beadData) {
-          const overlay = (child as any)._brightnessOverlay as PIXI.Graphics | undefined;
-          if (overlay) overlay.visible = visible;
-        }
-      });
-    }
-  }
-
   renderGraph(graph: WorkspaceGraph): void {
-    this.folderLayer.removeChildren();
-    this.beadLayer.removeChildren();
-    this.labelLayer.removeChildren();
-    this.particleLayer.removeChildren();
+    this.pinSpacing = graph.pinSpacing;
 
-    const folders = graph.nodes.filter((n) => n.type === "folder");
-    const files = graph.nodes.filter((n) => n.type === "file");
+    for (const r of this.regions) r.destroy();
+    this.regions = [];
+    this.cellState.reset();
+    this.world.removeChildren();
+    this.ironTool?.attachToWorld(this.world);
 
-    // Folder biome regions
-    for (const folder of folders) {
-      const region = createFolderRegion(folder);
-      this.folderLayer.addChild(region);
+    const filesByParent = new Map<string, FileBeadNode[]>();
+    const foldersByParent = new Map<string, FolderBeadNode[]>();
+
+    for (const node of graph.nodes) {
+      const pid = node.parentId ?? "";
+      if (node.type === "file") {
+        if (!filesByParent.has(pid)) filesByParent.set(pid, []);
+        filesByParent.get(pid)!.push(node);
+      } else if (node.id !== "") {
+        if (!foldersByParent.has(pid)) foldersByParent.set(pid, []);
+        foldersByParent.get(pid)!.push(node);
+      }
     }
 
-    // File beads with staggered entrance
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const { container: bead, label, brightnessOverlay } = createBeadNode(file);
+    const folderNodes = graph.nodes.filter(
+      (n): n is FolderBeadNode => n.type === "folder"
+    );
 
-      bead.eventMode = "static";
-      bead.cursor = "pointer";
-      (bead as any)._beadData = file;
-      (bead as any)._brightnessOverlay = brightnessOverlay;
+    for (const folder of folderNodes) {
+      const childFiles = filesByParent.get(folder.id) ?? [];
+      const childFolders = foldersByParent.get(folder.id) ?? [];
+      const { cells, cellOwners } = buildRegionCells(
+        folder,
+        childFiles,
+        childFolders
+      );
+      const region = new Region(folder, cells, cellOwners, this.pinSpacing);
 
-      bead.on("pointerover", (e: PIXI.FederatedPointerEvent) => {
-        showTooltip(file, e.globalX, e.globalY);
-        bead.scale.set(1.08);
+      region.container.on("pointermove", (e: PIXI.FederatedPointerEvent) => {
+        if (this.ironTool.isActive()) return;
+        const local = e.getLocalPosition(region.container);
+        const cellX =
+          Math.floor(local.x / this.pinSpacing) + folder.gridX;
+        const cellY =
+          Math.floor(local.y / this.pinSpacing) + folder.gridY;
+        const file = region.getCellOwner(cellX, cellY);
+        if (file) showTooltip(file, e.globalX, e.globalY);
+        else hideTooltip();
       });
-      bead.on("pointermove", (e: PIXI.FederatedPointerEvent) => {
-        showTooltip(file, e.globalX, e.globalY);
-      });
-      bead.on("pointerout", () => {
+      region.container.on("pointerleave", () => {
         hideTooltip();
-        bead.scale.set(1.0);
       });
-      bead.on("pointertap", () => showDetailCard(file));
+      region.container.on("pointertap", (e: PIXI.FederatedPointerEvent) => {
+        if (this.ironTool.isActive()) return;
+        const local = e.getLocalPosition(region.container);
+        const cellX =
+          Math.floor(local.x / this.pinSpacing) + folder.gridX;
+        const cellY =
+          Math.floor(local.y / this.pinSpacing) + folder.gridY;
+        const file = region.getCellOwner(cellX, cellY);
+        if (file) showDetailCard(file);
+      });
 
-      if (label) {
-        this.labelLayer.addChild(label);
-      }
-
-      // Entrance: beads fall in from above
-      const targetY = bead.y;
-      bead.y = targetY - 30;
-      bead.alpha = 0;
-      const delay = Math.min(i * 8, 800);
-      setTimeout(() => animateIn(bead, targetY), delay);
-
-      this.beadLayer.addChild(bead);
+      this.regions.push(region);
+      this.world.addChild(region.container);
     }
 
-    // Ambient floating particles
-    const particles = createAmbientParticles(2000, 2000);
-    this.particleLayer.addChild(particles);
-    this.app.ticker.add(() => {
-      updateParticles(particles);
-    });
+    const root = folderNodes.find((f) => f.id === "");
+    if (root) {
+      const w = root.gridCols * this.pinSpacing;
+      const h = root.gridRows * this.pinSpacing;
+      const sx = this.app.screen.width / w;
+      const sy = this.app.screen.height / h;
+      const scale = Math.min(sx, sy) * 0.9;
+      this.world.scale.set(scale);
+      this.world.x = (this.app.screen.width - w * scale) / 2;
+      this.world.y = (this.app.screen.height - h * scale) / 2;
+    }
 
-    // Breathing animation for beads
-    this.app.ticker.add(() => {
-      const t = Date.now() * 0.001;
-      for (let i = 0; i < this.beadLayer.children.length; i++) {
-        const child = this.beadLayer.children[i];
-        const data = (child as any)._beadData as BeadNode | undefined;
-        if (data && data.gitRecentActivity && data.gitRecentActivity > 0) {
-          const breathe = 1 + Math.sin(t * 1.5 + i * 0.3) * 0.01;
-          if (child.scale.x === 1.0 || child.scale.x === (child as any)._lastBreathe) {
-            child.scale.set(breathe);
-            (child as any)._lastBreathe = breathe;
-          }
-        }
-      }
-    });
-
-    // Center the view
-    const bounds = this.world.getBounds();
-    const scaleX = this.app.screen.width / bounds.width;
-    const scaleY = this.app.screen.height / bounds.height;
-    const scale = Math.min(scaleX, scaleY) * 0.85;
-    this.world.scale.set(scale);
-    this.world.x =
-      (this.app.screen.width - bounds.width * scale) / 2 - bounds.x * scale;
-    this.world.y =
-      (this.app.screen.height - bounds.height * scale) / 2 - bounds.y * scale;
+    for (const r of this.regions) r.redraw(this.cellState);
   }
-}
 
-function animateIn(sprite: PIXI.Container, targetY: number): void {
-  const startY = sprite.y;
-  const duration = 500;
-  const startTime = Date.now();
-
-  function tick() {
-    const elapsed = Date.now() - startTime;
-    const t = Math.min(1, elapsed / duration);
-    // Ease-out back (slight overshoot for bouncy feel)
-    const c1 = 1.2;
-    const ease = 1 + (c1 + 1) * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-    sprite.y = startY + (targetY - startY) * ease;
-    sprite.alpha = Math.min(1, t * 2);
-    if (t < 1) requestAnimationFrame(tick);
+  getRegions(): Region[] {
+    return this.regions;
   }
-  requestAnimationFrame(tick);
-}
+  getCellState(): CellStateMap {
+    return this.cellState;
+  }
+  getWorld(): PIXI.Container {
+    return this.world;
+  }
+  getPinSpacing(): number {
+    return this.pinSpacing;
+  }
+  getApp(): PIXI.Application {
+    return this.app;
+  }
 
-function updateParticles(container: PIXI.Container): void {
-  for (const child of container.children) {
-    const p = child as PIXI.Graphics & { _vy: number; _vx: number; _baseAlpha: number };
-    p.y += p._vy;
-    p.x += p._vx;
-    p.alpha = p._baseAlpha + Math.sin(Date.now() * 0.002 + p.x) * 0.15;
-    if (p.y > 2100) { p.y = -10; p.x = Math.random() * 2000; }
-    if (p.x > 2100) p.x = -10;
-    if (p.x < -10) p.x = 2100;
+  setAllCold(): void {
+    this.cellState.reset();
+    for (const r of this.regions) r.dirty = true;
+  }
+
+  setAllFused(): void {
+    for (const r of this.regions) {
+      this.cellState.setAllCells(r.cells, { temperature: 1, fused: true });
+      r.dirty = true;
+    }
+  }
+
+  resetBoard(): void {
+    this.setAllCold();
   }
 }
