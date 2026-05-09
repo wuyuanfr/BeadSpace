@@ -52,6 +52,15 @@ workspaceRouter.get("/workspace", async (req, res) => {
     const graph = buildGraph(allNodes, targetPath, PIN_SPACING);
     packAllFolders(allNodes, ROOT_ID);
 
+    for (const node of allNodes) {
+      if (node.type === "folder") {
+        if (!node.labelSprite) node.labelSprite = [];
+      } else {
+        if (!node.sprite) node.sprite = [];
+        if (!node.labelSprite) node.labelSprite = [];
+      }
+    }
+
     res.json(graph);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";

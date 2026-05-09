@@ -6,6 +6,9 @@ import { setViewportPanEnabled } from "../camera/viewport.js";
 const HEAT_PER_FRAME = 0.04;
 const BRUSH_FILL = 0xff8c8e;
 const BRUSH_STROKE = 0xff5c5e;
+const IRON_BODY = 0x888888;
+const IRON_PLATE = 0xc0c0c0;
+const IRON_HANDLE = 0x4f4f4f;
 
 export class IronTool {
   private app: BeadSpaceApp;
@@ -91,11 +94,7 @@ export class IronTool {
 
       this.brushGraphic.visible = true;
       this.brushGraphic.clear();
-      this.brushGraphic.circle(px, py, r * S);
-      this.brushGraphic.fill({ color: BRUSH_FILL, alpha: 0.18 });
-      this.brushGraphic
-        .circle(px, py, r * S)
-        .stroke({ color: BRUSH_STROKE, width: 2, alpha: 0.7 });
+      drawIron(this.brushGraphic, px, py, r * S);
     }
 
     if (!this.pressing || !this.pointerKnown) return;
@@ -124,6 +123,37 @@ export class IronTool {
       }
     }
   }
+}
+
+function drawIron(g: PIXI.Graphics, cx: number, cy: number, radius: number): void {
+  const w = radius * 2;
+  const h = radius * 2.4;
+  const tipY = cy + h * 0.5;
+  const topY = cy - h * 0.5;
+
+  // Soleplate: pointed bottom, wide top
+  g.moveTo(cx, tipY);
+  g.lineTo(cx + w * 0.5, cy - h * 0.05);
+  g.lineTo(cx + w * 0.5, topY + h * 0.15);
+  g.quadraticCurveTo(cx + w * 0.5, topY, cx + w * 0.35, topY);
+  g.lineTo(cx - w * 0.35, topY);
+  g.quadraticCurveTo(cx - w * 0.5, topY, cx - w * 0.5, topY + h * 0.15);
+  g.lineTo(cx - w * 0.5, cy - h * 0.05);
+  g.closePath();
+  g.fill({ color: IRON_PLATE, alpha: 0.45 });
+  g.stroke({ color: IRON_BODY, width: 2, alpha: 0.8 });
+
+  // Handle
+  const handleW = w * 0.2;
+  const handleH = h * 0.35;
+  const handleY = topY - handleH * 0.15;
+  g.roundRect(cx - handleW / 2, handleY, handleW, handleH, handleW * 0.3);
+  g.fill({ color: IRON_HANDLE, alpha: 0.55 });
+  g.stroke({ color: IRON_HANDLE, width: 1.5, alpha: 0.7 });
+
+  // Heat glow under the tip
+  g.circle(cx, cy + h * 0.15, radius * 0.5);
+  g.fill({ color: BRUSH_FILL, alpha: 0.2 });
 }
 
 function rectsOverlap(

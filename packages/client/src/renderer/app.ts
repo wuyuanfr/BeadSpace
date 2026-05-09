@@ -61,7 +61,6 @@ export class BeadSpaceApp {
     this.regions = [];
     this.cellState.reset();
     this.world.removeChildren();
-    this.ironTool?.attachToWorld(this.world);
 
     const filesByParent = new Map<string, FileBeadNode[]>();
     const foldersByParent = new Map<string, FolderBeadNode[]>();
@@ -131,6 +130,8 @@ export class BeadSpaceApp {
       this.world.x = (this.app.screen.width - w * scale) / 2;
       this.world.y = (this.app.screen.height - h * scale) / 2;
     }
+
+    this.ironTool?.attachToWorld(this.world);
 
     for (const r of this.regions) r.redraw(this.cellState);
   }
