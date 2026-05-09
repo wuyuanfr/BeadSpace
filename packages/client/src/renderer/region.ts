@@ -173,15 +173,15 @@ export function buildRegionCells(
   const covered = new Set<string>();
   const cellOwners = new Map<string, FileBeadNode>();
 
-  for (const c of folder.labelSprite) {
+  for (const c of folder.labelSprite ?? []) {
     pushCell(cells, covered, folder.gridX + c.dx, folder.gridY + c.dy, c.color);
   }
 
   for (const file of childFiles) {
-    for (const c of file.sprite) {
+    for (const c of file.sprite ?? []) {
       pushCell(cells, covered, file.gridX + c.dx, file.gridY + c.dy, c.color, cellOwners, file);
     }
-    for (const c of file.labelSprite) {
+    for (const c of file.labelSprite ?? []) {
       pushCell(cells, covered, file.gridX + c.dx, file.gridY + c.dy, c.color, cellOwners, file);
     }
   }
